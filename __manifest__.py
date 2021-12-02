@@ -40,9 +40,6 @@
     """
     ,
     "data": [
-        "view/partner.xml",
-        "report/base_document_layout.xml",
-        "report/account_move.xml",
 
     ],
     "installable": True,

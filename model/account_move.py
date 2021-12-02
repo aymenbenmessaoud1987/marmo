@@ -4,6 +4,19 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError, Warning
 
+# -*- coding: utf-8 -*-
+from odoo import models, fields, api ,_
+from odoo.http import request
+from .qr_generator import generateQrCode
+from odoo.tools import html2plaintext
+import codecs
+from uttlv import TLV
+import base64
+import time
+import datetime
+from fatoora import Fatoora
+
+
 
 class AccountMove(models.Model):
     _name = "account.move"
@@ -14,38 +27,38 @@ class AccountMove(models.Model):
                                                  help="")
     einv_amount_tax_total = fields.Monetary(string="Amount tax total", compute="_compute_total", store='True', help="")
 
+    qr_image = fields.Binary("QR Code", compute='_generate_qr_code',store='True')
     # amount_invoiced = fields.Float(string="Amount tax total", help="")
     # qrcode = fields.Char(string="QR", help="")
 
-    @api.depends('invoice_line_ids', 'amount_total')
-    def _compute_total(self):
-        for r in self:
-            r.einv_amount_sale_total = r.amount_untaxed + sum(line.einv_amount_discount for line in r.invoice_line_ids)
-            r.einv_amount_discount_total = sum(line.einv_amount_discount for line in r.invoice_line_ids)
-            r.einv_amount_tax_total = sum(line.einv_amount_tax for line in r.invoice_line_ids)
 
-    def _compute_amount(self):
-        res = super(AccountMove, self)._compute_amount()
+    def _generate_qr_code(self):
 
-        # do the things here
-        return res
+                fatoora_obj = Fatoora(
+                    seller_name=self.company_id.name,
+                    tax_number=self.company_id.vat,  # or "1234567891"
+                    invoice_date=str((datetime.datetime.strptime(str(self.create_date.strftime("%d-%b-%Y-%H:%M:%S")), "%d-%b-%Y-%H:%M:%S").timestamp())),  # Timestamp
+                    total_amount=self.amount_tax_signed,  # or 100.0, 100.00, "100.0", "100.00"
+                    tax_amount=self.amount_total,  # or 15.0, 15.00, "15.0", "15.00"
+                )
 
 
+                self.qr_image = generateQrCode.generate_qr_code(fatoora_obj.base64)
+                print(self.qr_image)
 
 
-class AccountMoveLine(models.Model):
-    _name = "account.move.line"
-    _inherit = "account.move.line"
-    einv_amount_discount = fields.Monetary(string="Amount discount", compute="_compute_amount_discount", store='True',
-                                           help="")
-    einv_amount_tax = fields.Monetary(string="Amount tax", compute="_compute_amount_tax", store='True', help="")
 
-    @api.depends('discount', 'quantity', 'price_unit')
-    def _compute_amount_discount(self):
-        for r in self:
-            r.einv_amount_discount = r.quantity * r.price_unit * (r.discount / 100)
 
-    @api.depends('tax_ids', 'discount', 'quantity', 'price_unit')
-    def _compute_amount_tax(self):
-        for r in self:
-            r.einv_amount_tax = sum(r.price_subtotal * (tax.amount / 100) for tax in r.tax_ids)
+class AccountMoveLineInherit(models.Model):
+    _inherit = 'account.invoice.line'
+
+    tax_amount = fields.Float(string="Tax Amount", compute="_compute_tax_amount")
+
+
+    @api.depends('invoice_line_tax_ids', 'price_unit','quantity')
+    def _compute_tax_amount(self):
+        for line in self:
+            if line.invoice_line_tax_ids:
+                line.tax_amount = line.price_total - line.price_subtotal
+            else:
+                line.tax_amount = 0.0

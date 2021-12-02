@@ -205,6 +205,10 @@
 
                 </div>
             </div>
+            <div style="width:100px;height:100px;float:left;">
+                    <span t-field="doc.qr_image" t-options='{"widget": "image"}' />
+                </div>
+
             <div class="oe_structure"/>
 
         </template>
