@@ -55,6 +55,8 @@ class AccountMoveLineInherit(models.Model):
     tax_amount = fields.Float(string="Tax Amount", compute="_compute_tax_amount")
 
 
+
+
     @api.depends('invoice_line_tax_ids', 'price_unit','quantity')
     def _compute_tax_amount(self):
         for line in self:
